@@ -34,10 +34,102 @@ class MikasaRoboTfdsConfig(tfds.core.BuilderConfig):
         """
         self.data_dir = kwargs.pop("data_dir", "../data")
         self.url = kwargs.pop("url", "../data")
+
+        assert "prompt" in kwargs, "Prompt must be provided in kwargs"
+        self.prompt = kwargs.pop("prompt", "No Prompt")
+
         super(MikasaRoboTfdsConfig, self).__init__(
             version=tfds.core.Version("1.0.0"),
             **kwargs,
         )
+
+
+def RememberColorBaselinePromptBuilder(task_name, data):
+    baseline = "baseline" in task_name
+    # find the color of the cube that need to be touched
+    if task_name == "RememberColor3-v0_baseline":
+        rgb = data["rgb"][1][..., 3:][58, 66]
+        hue = rgb2hsv(np.array(rgb))[0]
+        colour = ""
+        if hue < 0.1:
+            colour = "red"
+        elif hue > 0.3 and hue < 0.4:
+            colour = "green"
+        elif hue > 0.6 and hue < 0.7:
+            colour = "blue"
+        else:
+            raise ValueError("Unknown color")
+    elif task_name == "RememberColor9-v0_baseline":
+        clean_data = remove(data["rgb"][1][35:60, 60:85, 3:])
+        all_pixels_in_image = []
+        for i in range(len(clean_data)):
+            for j in range(len(clean_data[i])):
+                hsv = rgb2hsv(clean_data[i][j][:3])
+                all_pixels_in_image.append(hsv)
+        all_color_pixels_in_image = [x for x in all_pixels_in_image if x[1] > 0.9]
+
+        color_hue = sum([x[0] for x in all_color_pixels_in_image]) / len(
+            all_color_pixels_in_image
+        )
+        color_name_index = np.argmin([abs(x - color_hue) for x in HUE_NAMES.keys()])
+        colour = HUE_NAMES[list(HUE_NAMES.keys())[color_name_index]]
+    else:
+        raise ValueError("Unknown dataset")
+
+    return f"touch the {colour} cube"
+
+
+# fmt: off
+PROMPT_TEMPLATE_SHELL_GAME_TOUCH = "Memorize the position of the ball, then touch the cup with ball."
+PROMPT_TEMPLATE_SHELL_GAME_PUSH = "Memorize the position of the ball, then push the cup with ball."
+PROMPT_TEMPLATE_SHELL_GAME_PICK = "Memorize the position of the ball, then pick up the cup with ball."
+PROMPT_TEMPLATE_INTERCEPT = "Intercept the rolling ball and guide it towards the target."
+PROMPT_TEMPLATE_INTERCEPT_GRAB = "Intercept the rolling ball. Then catch the ball with the gripper and lift it up."
+PROMPT_TEMPLATE_ROTATE_LENIENT = "Memorize the initial position of the peg and rotate it back to its initial position."
+PROMPT_TEMPLATE_ROTATE_STRICT = "Memorize the initial position of the peg and rotate it back to its initial position without shifting its center."
+PROMPT_TEMPLATE_TAKE_IT_BACK = "Memorize the initial position of the cube, move it to the target region, and then return it to its initial position."
+PROMPT_TEMPLATE_REMEMBER_COLOR = "Memorize the the colors of the cube shown on the table, and then touch the same coloured cube out of all the cubes."
+PROMPT_TEMPLATE_REMEMBER_SHAPE = "Memorize the the shapes of the block shown on the table, and then touch the same shaped blocks."
+PROMPT_TEMPLATE_REMEMBER_SHAPE_AND_COLOR = "Memorize the shape and color of the blocks shown, and touch the blocks with the same shape and color."
+PROMPT_TEMPLATE_BUNCH_OF_COLORS = "Remember colors of the blocks shown at the begining, touch the same colored blocks in any order."
+PROMPT_TEMPLATE_SEQ_OF_COLORS = "Remember the colors of the set of cubes shown sequentially and then touch them in any order."
+PROMPT_TEMPLATE_CHAIN_OF_COLORS = "Remember the colors of the set of cubes shown sequentially and then select them in the same order as shown."
+# fmt: on
+
+TASK_PROMPTS = {
+    "ShellGameTouch-v0": PROMPT_TEMPLATE_SHELL_GAME_TOUCH,
+    "ShellGamePush-v0": PROMPT_TEMPLATE_SHELL_GAME_PUSH,
+    "ShellGamePick-v0": PROMPT_TEMPLATE_SHELL_GAME_PICK,
+    "InterceptSlow-v0": PROMPT_TEMPLATE_INTERCEPT,
+    "InterceptMedium-v0": PROMPT_TEMPLATE_INTERCEPT,
+    "InterceptFast-v0": PROMPT_TEMPLATE_INTERCEPT,
+    "InterceptGrabSlow-v0": PROMPT_TEMPLATE_INTERCEPT_GRAB,
+    "InterceptGrabMedium-v0": PROMPT_TEMPLATE_INTERCEPT_GRAB,
+    "InterceptGrabFast-v0": PROMPT_TEMPLATE_INTERCEPT_GRAB,
+    "RotateLenientPos-v0": PROMPT_TEMPLATE_ROTATE_LENIENT,
+    "RotateLenientPosNeg-v0": PROMPT_TEMPLATE_ROTATE_LENIENT,
+    "RotateStrictPos-v0": PROMPT_TEMPLATE_ROTATE_STRICT,
+    "RotateStrictPosNeg-v0": PROMPT_TEMPLATE_ROTATE_STRICT,
+    "TakeItBack-v0": PROMPT_TEMPLATE_TAKE_IT_BACK,
+    "RememberColor3-v0": PROMPT_TEMPLATE_REMEMBER_COLOR,
+    "RememberColor5-v0": PROMPT_TEMPLATE_REMEMBER_COLOR,
+    "RememberColor9-v0": PROMPT_TEMPLATE_REMEMBER_COLOR,
+    "RememberShape3-v0": PROMPT_TEMPLATE_REMEMBER_SHAPE,
+    "RememberShape5-v0": PROMPT_TEMPLATE_REMEMBER_SHAPE,
+    "RememberShape9-v0": PROMPT_TEMPLATE_REMEMBER_SHAPE,
+    "RememberShapeAndColor3x2-v0": PROMPT_TEMPLATE_REMEMBER_SHAPE,
+    "RememberShapeAndColor3x3-v0": PROMPT_TEMPLATE_REMEMBER_SHAPE,
+    "RememberShapeAndColor5x3-v0": PROMPT_TEMPLATE_REMEMBER_SHAPE,
+    "BunchOfColors3-v0": PROMPT_TEMPLATE_BUNCH_OF_COLORS,
+    "BunchOfColors5-v0": PROMPT_TEMPLATE_BUNCH_OF_COLORS,
+    "BunchOfColors7-v0": PROMPT_TEMPLATE_BUNCH_OF_COLORS,
+    "SeqOfColors3-v0": PROMPT_TEMPLATE_SEQ_OF_COLORS,
+    "SeqOfColors5-v0": PROMPT_TEMPLATE_SEQ_OF_COLORS,
+    "SeqOfColors7-v0": PROMPT_TEMPLATE_SEQ_OF_COLORS,
+    "ChainOfColors3-v0": PROMPT_TEMPLATE_CHAIN_OF_COLORS,
+    "ChainOfColors5-v0": PROMPT_TEMPLATE_CHAIN_OF_COLORS,
+    "ChainOfColors7-v0": PROMPT_TEMPLATE_CHAIN_OF_COLORS,
+}
 
 
 class Builder(tfds.core.GeneratorBasedBuilder):
@@ -54,18 +146,21 @@ class Builder(tfds.core.GeneratorBasedBuilder):
             description="Default configuration for mikasa_robo_tfds dataset.",
             data_dir="../data/",
             url="",
+            prompt="default prompt",
         ),
         MikasaRoboTfdsConfig(
             name="RememberColor9-v0_baseline",
             description="Default configuration for mikasa_robo_tfds dataset.",
             data_dir="../data/RememberColor9-v0/",
             url="",
+            prompt=RememberColorBaselinePromptBuilder,
         ),
         MikasaRoboTfdsConfig(
             name="RememberColor3-v0_baseline",
             description="Default configuration for mikasa_robo_tfds dataset.",
             data_dir="../data/RememberColor3-v0/",
             url="",
+            prompt=RememberColorBaselinePromptBuilder,
         ),
     ]
 
@@ -75,8 +170,7 @@ class Builder(tfds.core.GeneratorBasedBuilder):
         with open(readme_file, "r") as f:
             readme = f.read()
 
-        matches = re.findall(
-            r"\[Download .* dataset\]\((https://.*\.zip)\)", readme)
+        matches = re.findall(r"\[Download .* dataset\]\((https://.*\.zip)\)", readme)
 
         for match in matches:
             url = str(match)
@@ -88,6 +182,7 @@ class Builder(tfds.core.GeneratorBasedBuilder):
                     description=f"mikasa_robo_tfds dataset task {name}",
                     data_dir=f"../data/{name}",
                     url=url,
+                    prompt=TASK_PROMPTS[name] if name in TASK_PROMPTS else "No Prompt",
                 )
             )
 
@@ -155,9 +250,7 @@ class Builder(tfds.core.GeneratorBasedBuilder):
 
     def _split_generators(self, dl_manager: tfds.download.DownloadManager):
         """Returns SplitGenerators."""
-        archive_path = dl_manager.download_and_extract(
-            self.builder_config.url
-        )
+        archive_path = dl_manager.download_and_extract(self.builder_config.url)
 
         data_dir = Path(archive_path) / self.builder_config.name
         print(f"Using data from {data_dir}")
@@ -183,50 +276,25 @@ class Builder(tfds.core.GeneratorBasedBuilder):
         """Yields examples."""
 
         def _parse_episode(episode_path):
-            # episode_path = tf.io.gfile.GFile(episode_path, mode='r')
-            # load raw data --> this should change for your dataset
-            baseline = "baseline" in self.builder_config.name
+            """Parses a single episode file."""
 
+            # load the episode data
             data = np.load(
                 episode_path, allow_pickle=True
             )  # this is a list of dicts in our case
 
-            if baseline:
-                # find the color of the cube that need to be touched
-                if "3" in self.builder_config.name:
-                    rgb = data["rgb"][1][..., 3:][58, 66]
-                    hue = rgb2hsv(np.array(rgb))[0]
-                    colour = ""
-                    if hue < 0.1:
-                        colour = "red"
-                    elif hue > 0.3 and hue < 0.4:
-                        colour = "green"
-                    elif hue > 0.6 and hue < 0.7:
-                        colour = "blue"
-                    else:
-                        raise ValueError("Unknown color")
-                elif "9" in self.builder_config.name:
-                    clean_data = remove(data["rgb"][1][35:60, 60:85, 3:])
-                    all_pixels_in_image = []
-                    for i in range(len(clean_data)):
-                        for j in range(len(clean_data[i])):
-                            hsv = rgb2hsv(clean_data[i][j][:3])
-                            all_pixels_in_image.append(hsv)
-                    all_color_pixels_in_image = [
-                        x for x in all_pixels_in_image if x[1] > 0.9
-                    ]
+            # create the language instruction for this episode
+            if callable(self.builder_config.prompt):
+                language_instruction = self.builder_config.prompt(
+                    self.builder_config.name, data
+                )
+            elif isinstance(self.builder_config.prompt, str):
+                language_instruction = self.builder_config.prompt
+            else:
+                raise ValueError(
+                    "Prompt must be a string or a callable that returns a string."
+                )
 
-                    color_hue = sum(
-                        [x[0] for x in all_color_pixels_in_image]
-                    ) / len(all_color_pixels_in_image)
-                    color_name_index = np.argmin(
-                        [abs(x - color_hue) for x in HUE_NAMES.keys()]
-                    )
-                    colour = HUE_NAMES[list(HUE_NAMES.keys())[color_name_index]]
-                else:
-                    raise ValueError("Unknown dataset")
-
-            # assemble episode --> here we're assuming demos so we set reward to 1 at the end
             episode = []
             for i in range(len(data["rgb"]) - 1):
                 joints = data["joints"][i].astype(np.float32)
@@ -265,21 +333,17 @@ class Builder(tfds.core.GeneratorBasedBuilder):
                         },
                         "action": action,
                         "is_terminal": is_terminal,
-                        "language_instruction": (
-                            f"touch the {colour} cube"
-                            if baseline
-                            else "Memorize the the colors of the cube shown on the table, and then touch the same coloured cube out of all the cubes."
-                        ),
+                        "language_instruction": language_instruction,
                         "step": i,
                     }
                 )
-                action_prev = action
+
             # create output data sample
             sample = {
                 "steps": episode,
                 "episode_metadata": {"file_path": str(episode_path)},
             }
-            # if you want to skip an example for whatever reason, simply return None
+
             return str(episode_path), sample
 
         # for smallish datasets, use single-thread parsing
