@@ -20,7 +20,11 @@ datasets=(
     'RotateStrictPos-v0'
     'RotateStrictPosNeg-v0'
     'TakeItBack-v0'
+    'RememberColor3-v0'
     'RememberColor5-v0'
+    'RememberColor9-v0'
+    'RememberColor3-v0_baseline'
+    'RememberColor9-v0_baseline'
     'RememberShape3-v0'
     'RememberShape5-v0'
     'RememberShape9-v0'
@@ -34,7 +38,12 @@ datasets=(
     'SeqOfColors5-v0'
     'SeqOfColors7-v0'
     'ChainOfColors3-v0'
+    'ChainOfColors5-v0'
+    'ChainOfColors7-v0'
 )
+
+source ~/anaconda3/etc/profile.d/conda.sh
+conda activate openvla
 
 # Build each dataset
 for dataset in ${datasets[@]}; do
@@ -49,9 +58,9 @@ for dataset in ${datasets[@]}; do
     rm -rf /home/liyouzhou/tensorflow_datasets/downloads/*
     ls /home/liyouzhou/tensorflow_datasets/*
     cd "/home/liyouzhou/tensorflow_datasets/mikasa_robo_tfds/"
-    git add "${dataset}"
-    git commit -m "Add ${dataset} dataset"
-    git push
-    rm -rf /home/liyouzhou/tensorflow_datasets/mikasa_robo_tfds/${dataset}/1.0.0/*tfrecord*
+    # git add "${dataset}"
+    # git commit -m "Add ${dataset} dataset"
+    # git push
+    # rm -rf /home/liyouzhou/tensorflow_datasets/mikasa_robo_tfds/${dataset}/1.0.0/*tfrecord*
     echo "Built and pushed ${dataset} dataset."
 done

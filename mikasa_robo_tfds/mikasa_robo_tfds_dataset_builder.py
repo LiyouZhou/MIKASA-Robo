@@ -152,14 +152,14 @@ class Builder(tfds.core.GeneratorBasedBuilder):
             name="RememberColor9-v0_baseline",
             description="Default configuration for mikasa_robo_tfds dataset.",
             data_dir="../data/RememberColor9-v0/",
-            url="",
+            url="https://huggingface.co/datasets/avanturist/mikasa-robo/resolve/main/RememberColor9-v0.zip",
             prompt=RememberColorBaselinePromptBuilder,
         ),
         MikasaRoboTfdsConfig(
             name="RememberColor3-v0_baseline",
             description="Default configuration for mikasa_robo_tfds dataset.",
             data_dir="../data/RememberColor3-v0/",
-            url="",
+            url="https://huggingface.co/datasets/avanturist/mikasa-robo/resolve/main/RememberColor3-v0.zip",
             prompt=RememberColorBaselinePromptBuilder,
         ),
     ]
@@ -242,6 +242,9 @@ class Builder(tfds.core.GeneratorBasedBuilder):
                             "file_path": tfds.features.Text(
                                 doc="Path to the original data file."
                             ),
+                            "task_name": tfds.features.Text(
+                                doc="Name of the task, e.g., 'ShellGameTouch-v0'."
+                            ),
                         }
                     ),
                 }
@@ -252,7 +255,7 @@ class Builder(tfds.core.GeneratorBasedBuilder):
         """Returns SplitGenerators."""
         archive_path = dl_manager.download_and_extract(self.builder_config.url)
 
-        data_dir = Path(archive_path) / self.builder_config.name
+        data_dir = Path(archive_path) / self.builder_config.name.strip("_baseline")
         print(f"Using data from {data_dir}")
         episodes = data_dir.glob("*.npz")
 
@@ -297,6 +300,7 @@ class Builder(tfds.core.GeneratorBasedBuilder):
 
             episode = []
             for i in range(len(data["rgb"]) - 1):
+                # https://github.com/CognitiveAISystems/MIKASA-Robo/issues/3#issuecomment-2772414275
                 joints = data["joints"][i].astype(np.float32)
                 next_joints = data["joints"][i + 1].astype(np.float32)
                 ee_pos = joints[:3]
@@ -315,13 +319,15 @@ class Builder(tfds.core.GeneratorBasedBuilder):
                         delta_rot.as_euler("xyz")[0],
                         delta_rot.as_euler("xyz")[1],
                         delta_rot.as_euler("xyz")[2],
-                        data["action"][i][-1],
+                        data["action"][i][
+                            -1
+                        ],  # gripper always controlled by absolute position
                     ],
                     dtype=np.float32,
                 )
                 state = data["joints"][i].astype(np.float32)
-                is_terminal = bool(data["done"][i])
-                image = data["rgb"][i - 1]
+                is_terminal = bool(data["done"][i] or data["success"][i])
+                image = data["rgb"][i]
 
                 episode.append(
                     {
@@ -338,10 +344,18 @@ class Builder(tfds.core.GeneratorBasedBuilder):
                     }
                 )
 
+                # stop if terminal state is reached
+                if is_terminal:
+                    episode[-1]["is_last"] = True
+                    break
+
             # create output data sample
             sample = {
                 "steps": episode,
-                "episode_metadata": {"file_path": str(episode_path)},
+                "episode_metadata": {
+                    "file_path": str(episode_path),
+                    "task_name": self.builder_config.name,
+                },
             }
 
             return str(episode_path), sample
