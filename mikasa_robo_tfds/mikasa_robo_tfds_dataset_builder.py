@@ -39,7 +39,7 @@ class MikasaRoboTfdsConfig(tfds.core.BuilderConfig):
         self.prompt = kwargs.pop("prompt", "No Prompt")
 
         super(MikasaRoboTfdsConfig, self).__init__(
-            version=tfds.core.Version("1.0.0"),
+            version=tfds.core.Version("1.0.1"),
             **kwargs,
         )
 
@@ -204,6 +204,12 @@ class Builder(tfds.core.GeneratorBasedBuilder):
                                         encoding_format="png",
                                         doc="camera image.",
                                     ),
+                                    "image2": tfds.features.Image(
+                                        shape=(128, 128, 3),
+                                        dtype=np.uint8,
+                                        encoding_format="png",
+                                        doc="secondary image",
+                                    ),
                                     "state": tfds.features.Tensor(
                                         shape=(25,),
                                         dtype=np.float32,
@@ -335,6 +341,7 @@ class Builder(tfds.core.GeneratorBasedBuilder):
                         "is_last": i == len(data) - 1,
                         "observation": {
                             "image": image[:, :, :3],  # only take top view image
+                            "image2": image[:, :, 3:],  # secondary image
                             "state": state,
                         },
                         "action": action,
